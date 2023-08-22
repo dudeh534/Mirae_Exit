@@ -83,6 +83,18 @@ elif num == 4:
   result = strategy.double_moving_average_yield(df, 3, 65)
   print(result)
 
+elif num == 5:
+
+  result = []
+  for ticker_1034 in tickers:
+    df = stock.get_market_ohlcv('20220101', '20230814', ticker_1034)
+    result.append(strategy.double_moving_average_yield_with_bollinger(df, 5, 20))
+
+
+  s = pd.Series(result, tickers)
+  s = s.sort_values(ascending=False)
+  print(s)
+
 else:
   pass
 
