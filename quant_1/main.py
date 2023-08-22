@@ -1,11 +1,3 @@
-from pykrx import stock
-import pandas as pd
-import numpy as np
-import random
-import os
-import time
-import matplotlib.pyplot as plt
-from strategies import MovingAverageStrategy
 
 """
 방향성
@@ -26,15 +18,42 @@ from strategies import MovingAverageStrategy
 1. 골든크로스, 데드크로스 방식으로 최적의 단기 이평선, 장기 이평선 골든크로스를 찾아보자는 생각 -> 종목별 수익률, N이평선별 수익률
 -> 그걸 찾아도 미래에 그 이평선의 유효할 것이라는 담보를 할 수 있을까
 -> 타계점 : train set, validation set, test set 으로 나눠서 검증해보는 방법
-
 2. 골든크로스에 거래량을 더해서 이동평균의 2배 보다 큰 거래량이 터졌을때 매수하는 방법
 3. backtrader 이용하는 방법
-
 4. 퀀터스에 발췌한 피터린치 기법의 포트폴리오로 먼저 1차 대상 색출 이후 기술적분석으로 매매 타이밍을 선정하는 것.
 
+결론 : 그래서 앞으로 무슨 어떻게 해야하지? 심층신경망을 이용한 방법?
+앞으로도 유의미하게 좋은 수익률을 거둘 수 있는 전략을 도출해내는 것.
 
+1. 전략탐색
+2. 전략구현
+3. 백테스팅
+4. 검증
+
+의 무한루프
+
+1. 데이터를 의심하라
+2. 미래를 먼저 바라보지 마라
+3. 과최적화를 피하라
+4. 검증기회는 한번 뿐이다.
+5. 시대는 변한다
+6. 퀀트도 자신을 절제해야한다.
+7. 비퀀트적 언어로 전략을 설명하기
+8. 나를 여러각도에서 의심하라
+9. 벤치마크를 제대로 설정하라
+10. 전략을 분산하라
 
 """
+
+
+from pykrx import stock
+import pandas as pd
+import numpy as np
+import random
+import os
+import time
+import matplotlib.pyplot as plt
+from strategies import MovingAverageStrategy
 
 strategy = MovingAverageStrategy()
 tickers = stock.get_index_portfolio_deposit_file("1028")
