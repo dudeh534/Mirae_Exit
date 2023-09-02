@@ -20,7 +20,7 @@ import time
 
 
 def save_ticker_to_excel(market, filename):
-    tickers = stock.get_market_ticker_list(market=market)
+    tickers = stock.get_market_ticker_list(market=market) 
     info_list = []
 
     for ticker in tickers:
