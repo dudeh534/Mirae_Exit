@@ -115,84 +115,90 @@ def NCAV_Score_cal(ticker) :
 
     except:
 
-        return "error"
+        return 0
 
 def F_Score_cal(ticker):
+    try:
+        ds_temp_y = data_fs(ticker, 'y')
+        ds_temp_q = data_fs(ticker, 'q')
+        #자산수익률(당기순이익)
+        roa = ds_temp_y.loc[ds_temp_y['계정'] == '당기순이익']['값'].iloc[-1]
 
+        #영업현금흐름
+        cfo = ds_temp_y.loc[ds_temp_y['계정'] == '영업활동으로인한현금흐름']['값'].iloc[-1]
 
-    ds_temp_y = data_fs(ticker, 'y')
-    ds_temp_q = data_fs(ticker, 'q')
-    #자산수익률(당기순이익)
-    roa = ds_temp_y.loc[ds_temp_y['계정'] == '당기순이익']['값'].iloc[-1]
+        #전년도 ROA
+        delta_roa_bf = ds_temp_y.loc[ds_temp_y['계정'] == '당기순이익']['값'].iloc[-1] / ds_temp_y.loc[ds_temp_y['계정'] == '자산']['값'].iloc[-1] * 100
+        #전전년도 ROA
+        delta_roa_bfbf = ds_temp_y.loc[ds_temp_y['계정'] == '당기순이익']['값'].iloc[-2] / ds_temp_y.loc[ds_temp_y['계정'] == '자산']['값'].iloc[-2] * 100
+        #근데 wisereport 랑 왜 다르게 나오지?
+        #ROA의 증가율
+        delta_roa = delta_roa_bf - delta_roa_bfbf
 
-    #영업현금흐름
-    cfo = ds_temp_y.loc[ds_temp_y['계정'] == '영업활동으로인한현금흐름']['값'].iloc[-1]
+        #순이익과 영업현금흐름의 차이
+        accrual = roa - cfo
 
-    #전년도 ROA
-    delta_roa_bf = ds_temp_y.loc[ds_temp_y['계정'] == '당기순이익']['값'].iloc[-1] / ds_temp_y.loc[ds_temp_y['계정'] == '자산']['값'].iloc[-1] * 100
-    #전전년도 ROA
-    delta_roa_bfbf = ds_temp_y.loc[ds_temp_y['계정'] == '당기순이익']['값'].iloc[-2] / ds_temp_y.loc[ds_temp_y['계정'] == '자산']['값'].iloc[-2] * 100
-    #근데 wisereport 랑 왜 다르게 나오지?
-    #ROA의 증가율
-    delta_roa = delta_roa_bf - delta_roa_bfbf
+        #당해부채비율
+        delta_lever_bf = ds_temp_q.loc[ds_temp_q['계정'] == '부채']['값'].iloc[-1] / ds_temp_q.loc[ds_temp_q['계정'] == '자본']['값'].iloc[-1]
+        #전년부채비율
+        delta_lever_bfbf = ds_temp_y.loc[ds_temp_y['계정'] == '부채']['값'].iloc[-1] / ds_temp_y.loc[ds_temp_y['계정'] == '자본']['값'].iloc[-1]
+        #부채비율증가율
+        delta_lever = delta_lever_bf - delta_lever_bfbf
 
-    #순이익과 영업현금흐름의 차이
-    accrual = roa - cfo
+        # 유동성의 변화 : 당해 유동비율
+        delta_liquidity_bf = ds_temp_q.loc[ds_temp_q['계정'] == '유동자산']['값'].iloc[-1] / ds_temp_q.loc[ds_temp_q['계정'] == '유동부채']['값'].iloc[-1]
+        # 유동성의 변화 : 전년 유동비율
+        delta_liquidity_bfbf = ds_temp_y.loc[ds_temp_y['계정'] == '유동자산']['값'].iloc[-1] / ds_temp_y.loc[ds_temp_y['계정'] == '유동부채']['값'].iloc[-1]
+        # 유동성의 변화율
+        delta_liquidity = delta_liquidity_bf - delta_liquidity_bfbf
 
-    #당해부채비율
-    delta_lever_bf = ds_temp_q.loc[ds_temp_q['계정'] == '부채']['값'].iloc[-1] / ds_temp_q.loc[ds_temp_q['계정'] == '자본']['값'].iloc[-1]
-    #전년부채비율
-    delta_lever_bfbf = ds_temp_y.loc[ds_temp_y['계정'] == '부채']['값'].iloc[-1] / ds_temp_y.loc[ds_temp_y['계정'] == '자본']['값'].iloc[-1]
-    #부채비율증가율
-    delta_lever = delta_lever_bf - delta_lever_bfbf
+        # 작년상장주식수
+        stock_2022 = stock.get_market_cap("20221201", "20221231", ticker, "m")
+        stock_2022_last = stock_2022['상장주식수'].iloc[-1]
+        # 올해상장주식수
+        stock_2023 = stock.get_market_cap("20230801", "20230831", ticker, "m")
+        stock_2023_last = stock_2023['상장주식수'].iloc[-1]
+        # 두 상장주식수 비교
+        eq_offer = 1 if stock_2023_last > stock_2022_last else 0
 
-    # 유동성의 변화 : 당해 유동비율
-    delta_liquidity_bf = ds_temp_q.loc[ds_temp_q['계정'] == '유동자산']['값'].iloc[-1] / ds_temp_q.loc[ds_temp_q['계정'] == '유동부채']['값'].iloc[-1]
-    # 유동성의 변화 : 전년 유동비율
-    delta_liquidity_bfbf = ds_temp_y.loc[ds_temp_y['계정'] == '유동자산']['값'].iloc[-1] / ds_temp_y.loc[ds_temp_y['계정'] == '유동부채']['값'].iloc[-1]
-    # 유동성의 변화율
-    delta_liquidity = delta_liquidity_bf - delta_liquidity_bfbf
+        # 매출총이익률의 변화 : 당해 매출총이익율
+        delta_margin_bf = ds_temp_q.loc[ds_temp_q['계정'] == '매출총이익']['값'].iloc[-1] / ds_temp_q.loc[ds_temp_q['계정'] == '매출액']['값'].iloc[-1]
+        # 매출총이익률의 변화 : 전년 매출총이익율
+        delta_margin_bfbf = ds_temp_y.loc[ds_temp_y['계정'] == '매출총이익']['값'].iloc[-1] / ds_temp_y.loc[ds_temp_y['계정'] == '매출액']['값'].iloc[-1]
+        # 매출총이익률의 변화
+        delta_margin = delta_margin_bf - delta_margin_bfbf
 
-    # 작년상장주식수
-    stock_2022 = stock.get_market_cap("20221201", "20221231", ticker, "m")
-    stock_2022_last = stock_2022['상장주식수'].iloc[-1]
-    # 올해상장주식수
-    stock_2023 = stock.get_market_cap("20230801", "20230831", ticker, "m")
-    stock_2023_last = stock_2023['상장주식수'].iloc[-1]
-    # 두 상장주식수 비교
-    eq_offer = 1 if stock_2023_last > stock_2022_last else 0
+        # 자산회전율의 변화 : 당해 자산회전율
+        delta_turn_bf = ds_temp_q.loc[ds_temp_q['계정'] == '매출액']['값'].iloc[-1] / ds_temp_q.loc[ds_temp_q['계정'] == '자산']['값'].iloc[-1]
+        # 자산회전율의 변화 : 전년 자산회전율
+        delta_turn_bfbf = ds_temp_y.loc[ds_temp_y['계정'] == '매출액']['값'].iloc[-1] / ds_temp_y.loc[ds_temp_y['계정'] == '자산']['값'].iloc[-1]
+        # 자산회전율의 변화
+        delta_turn = delta_turn_bf - delta_turn_bfbf
 
-    # 매출총이익률의 변화 : 당해 매출총이익율
-    delta_margin_bf = ds_temp_q.loc[ds_temp_q['계정'] == '매출총이익']['값'].iloc[-1] / ds_temp_q.loc[ds_temp_q['계정'] == '매출액']['값'].iloc[-1]
-    # 매출총이익률의 변화 : 전년 매출총이익율
-    delta_margin_bfbf = ds_temp_y.loc[ds_temp_y['계정'] == '매출총이익']['값'].iloc[-1] / ds_temp_y.loc[ds_temp_y['계정'] == '매출액']['값'].iloc[-1]
-    # 매출총이익률의 변화
-    delta_margin = delta_margin_bf - delta_margin_bfbf
+        # F-Score 계산
+        F_Score = 0
+        F_Score += 1 if roa > 0 else 0
+        F_Score += 1 if cfo > 0 else 0
+        F_Score += 1 if delta_roa > 0 else 0
+        F_Score += 1 if accrual < cfo else 0
+        F_Score += 1 if delta_lever < 0 else 0
+        F_Score += 1 if delta_liquidity > 0 else 0
+        F_Score += 1 if eq_offer == 0 else 0
+        F_Score += 1 if delta_margin > 0 else 0
+        F_Score += 1 if delta_turn > 0 else 0
 
-    # 자산회전율의 변화 : 당해 자산회전율
-    delta_turn_bf = ds_temp_q.loc[ds_temp_q['계정'] == '매출액']['값'].iloc[-1] / ds_temp_q.loc[ds_temp_q['계정'] == '자산']['값'].iloc[-1]
-    # 자산회전율의 변화 : 전년 자산회전율
-    delta_turn_bfbf = ds_temp_y.loc[ds_temp_y['계정'] == '매출액']['값'].iloc[-1] / ds_temp_y.loc[ds_temp_y['계정'] == '자산']['값'].iloc[-1]
-    # 자산회전율의 변화
-    delta_turn = delta_turn_bf - delta_turn_bfbf
+        return F_Score
+    except:
 
-    # F-Score 계산
-    F_Score = 0
-    F_Score += 1 if roa > 0 else 0
-    F_Score += 1 if cfo > 0 else 0
-    F_Score += 1 if delta_roa > 0 else 0
-    F_Score += 1 if accrual < cfo else 0
-    F_Score += 1 if delta_lever < 0 else 0
-    F_Score += 1 if delta_liquidity > 0 else 0
-    F_Score += 1 if eq_offer == 0 else 0
-    F_Score += 1 if delta_margin > 0 else 0
-    F_Score += 1 if delta_turn > 0 else 0
-
-    return F_Score
+        return 0
 
 def GPA_cal(ticker):
-    ds_temp_q = data_fs(ticker, 'q')
-    return ds_temp_q.loc[ds_temp_q['계정'] == '매출총이익']['값'].iloc[-1] / ds_temp_q.loc[ds_temp_q['계정'] == '자산']['값'].iloc[-1]
+    try :
+        ds_temp_q = data_fs(ticker, 'q')
+        GPA_score = ds_temp_q.loc[ds_temp_q['계정'] == '매출총이익']['값'].iloc[-1] / ds_temp_q.loc[ds_temp_q['계정'] == '자산']['값'].iloc[-1]
+        return GPA_score
+    except :
+        return 0
 
 if __name__ == "__main__":
     combined_df = combine_excel_files("kospi_tickers.xlsx", "kosdaq_tickers.xlsx")
@@ -202,20 +208,26 @@ if __name__ == "__main__":
     if num == 1:
 
         df_to_save = pd.DataFrame(columns=['Ticker', 'NCAV_Score', 'Name', 'F_Score', 'GP/A'])
-
+        new_row = pd.DataFrame()
         temp = 0
         for ticker in combined_df['종목코드']:
-            ncav_score= NCAV_Score_cal(ticker)
+            ncav_score = float(NCAV_Score_cal(ticker))
+
+            if temp > 30 :
+                break
+            temp += 1
 
             if ncav_score >= 0.5 :
-                # 새로운 행을 DataFrame으로 만들고 concat으로 추가
-                new_row = pd.DataFrame({
-                    'Ticker': [ticker],
-                    'NCAV_Score': [ncav_score],
-                    'Name': [combined_df.loc[combined_df['종목코드'] == ticker]['종목명'].item()],
-                    'F_Score':[F_Score_cal(ticker)],
-                    'GP/A':[GPA_cal(ticker)]
-                })
+                pass
+
+            # 새로운 행을 DataFrame으로 만들고 concat으로 추가
+            new_row = pd.DataFrame({
+                'Ticker': [ticker],
+                'NCAV_Score': [ncav_score],
+                'Name': [combined_df.loc[combined_df['종목코드'] == ticker]['종목명'].item()],
+                'F_Score':[F_Score_cal(ticker)],
+                'GP/A':[GPA_cal(ticker)]
+            })
 
             df_to_save = pd.concat([df_to_save, new_row], ignore_index=True)
 
