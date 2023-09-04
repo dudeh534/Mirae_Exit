@@ -190,6 +190,10 @@ def F_Score_cal(ticker):
 
     return F_Score
 
+def GPA_cal(ticker):
+    ds_temp_q = data_fs(ticker, 'q')
+    return ds_temp_q.loc[ds_temp_q['계정'] == '매출총이익']['값'].iloc[-1] / ds_temp_q.loc[ds_temp_q['계정'] == '자산']['값'].iloc[-1]
+
 if __name__ == "__main__":
     combined_df = combine_excel_files("kospi_tickers.xlsx", "kosdaq_tickers.xlsx")
 
@@ -197,17 +201,21 @@ if __name__ == "__main__":
 
     if num == 1:
 
-        df_to_save = pd.DataFrame(columns=['Ticker', 'NCAV_Score', 'Name'])
+        df_to_save = pd.DataFrame(columns=['Ticker', 'NCAV_Score', 'Name', 'F_Score', 'GP/A'])
 
         temp = 0
         for ticker in combined_df['종목코드']:
+            ncav_score= NCAV_Score_cal(ticker)
 
-            # 새로운 행을 DataFrame으로 만들고 concat으로 추가
-            new_row = pd.DataFrame({
-                'Ticker': [ticker],
-                'NCAV_Score': [NCAV_Score_cal(ticker)],
-                'Name': [combined_df.loc[combined_df['종목코드'] == ticker]['종목명'].item()]
-            })
+            if ncav_score >= 0.5 :
+                # 새로운 행을 DataFrame으로 만들고 concat으로 추가
+                new_row = pd.DataFrame({
+                    'Ticker': [ticker],
+                    'NCAV_Score': [ncav_score],
+                    'Name': [combined_df.loc[combined_df['종목코드'] == ticker]['종목명'].item()],
+                    'F_Score':[F_Score_cal(ticker)],
+                    'GP/A':[GPA_cal(ticker)]
+                })
 
             df_to_save = pd.concat([df_to_save, new_row], ignore_index=True)
 
