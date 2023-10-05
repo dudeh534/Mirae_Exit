@@ -45,7 +45,7 @@ for i in tqdm(range(0, len(ticker_list))):
 
     # 시작일과 종료일
 
-    fr = (date.today() + relativedelta(days=-7)).strftime("%Y%m%d")
+    fr = (date.today() + relativedelta(days=-9)).strftime("%Y%m%d")
     to = (date.today()).strftime("%Y%m%d")
 
     # 오류 발생 시 이를 무시하고 다음 루프로 진행
