@@ -5,14 +5,24 @@ import statsmodels.api as sm
 from scipy.stats import zscore
 import matplotlib.pyplot as plt
 
+"""
+퀄리티: 자기자본이익률(ROE), 매출총이익(GPA), 영업활동현금흐름(CFO)
+밸류: PER, PBR, PSR, PCR, DY
+모멘텀: 12개월 수익률, K-Ratio
+"""
 
+#cutoff 즉 아웃라이어는 1%로 설정하며, asc는 False로 설정한다.
 def col_clean(df, cutoff=0.01, asc=False):
 
+    #아웃라이어 기준에 해당하는 q_low와 q_hi을 계산한다.
     q_low = df.quantile(cutoff)
     q_hi = df.quantile(1 - cutoff)
 
+    #트림 방법을 통해 이상치 데이터를 제외한 값을 선택한다.
     df_trim = df[(df > q_low) & (df < q_hi)]
 
+    #만일 asc가 False일 경우 순위를 ascending = False 즉 내림차순으로 계산한다. 만일 asc가 True일 경우에는 순위를 ascending = True 즉 오름차순으로 계산한다.
+    #그 후 apply() 메서드를 통해 zscore를 계산한다.
     if asc == False:
         df_z_score = df_trim.rank(axis=0, ascending=False).apply(
             zscore, nan_policy='omit')
@@ -68,17 +78,16 @@ fs_list_pivot['ROE'] = fs_list_pivot['당기순이익'] / fs_list_pivot['자본'
 fs_list_pivot['GPA'] = fs_list_pivot['매출총이익'] / fs_list_pivot['자산']
 fs_list_pivot['CFO'] = fs_list_pivot['영업활동으로인한현금흐름'] / fs_list_pivot['자산']
 
-print(fs_list_pivot.round(4).head())
-
 value_list.loc[value_list['값'] <= 0, '값'] = np.nan
 value_pivot = value_list.pivot(index='종목코드', columns='지표', values='값')
 
-print(value_pivot.head())
 
+#먼저 가격 테이블을 이용해 최근 12개월 수익률을 구한다.
 price_pivot = price_list.pivot(index='날짜', columns='종목코드', values='종가')
 ret_list = pd.DataFrame(data=(price_pivot.iloc[-1] / price_pivot.iloc[0]) - 1,
                         columns=['12M'])
 
+#로그 누적수익률을 통해 각 종목 별 K-Ratio를 계산한다.
 ret = price_pivot.pct_change().iloc[1:]
 ret_cum = np.log(1 + ret).cumsum()
 
@@ -101,8 +110,7 @@ for i in range(0, len(ticker_list)):
 k_ratio_bind = pd.DataFrame.from_dict(k_ratio, orient='index').reset_index()
 k_ratio_bind.columns = ['종목코드', 'K_ratio']
 
-print(k_ratio_bind.head())
-
+#티커, 섹터, 퀄리티, 밸류, 12개월 수익률, K-ratio 테이블을 하나로 합친다.
 data_bind = ticker_list[['종목코드', '종목명']].merge(
     sector_list[['CMP_CD', 'SEC_NM_KOR']],
     how='left',
@@ -118,37 +126,42 @@ data_bind = ticker_list[['종목코드', '종목명']].merge(
 data_bind.loc[data_bind['SEC_NM_KOR'].isnull(), 'SEC_NM_KOR'] = '기타'
 data_bind = data_bind.drop(['CMP_CD'], axis=1)
 
-print(data_bind.round(4).head())
-
+#먼저 종목코드와 섹터정보(SEC_NM_KOR)를 인덱스로 설정한 후, 섹터에 따른 그룹을 묶어준다.
 data_bind_group = data_bind.set_index(['종목코드',
                                        'SEC_NM_KOR']).groupby('SEC_NM_KOR')
 
-print(data_bind_group.head(1).round(4))
-
+#첫번째로 퀄리티 지표의 Z-Score를 계산해보도록 하자.
+#섹터별 그룹으로 묶인 테이블에서 퀄리티 지표에 해당하는 ROE, GPA, CFO 열을 선택한 후, 위에서 만든 col_clean() 함수를 적용하면 아웃라이어를 제거한 후 순위의 Z-Score를 계산한다
+#sum 함수를 통해 Z-Score의 합을 구하며, to_frame() 메서드를 통해 데이터프레임 형태로 변경한다.
 z_quality = data_bind_group[['ROE', 'GPA', 'CFO'
                              ]].apply(lambda x: col_clean(x, 0.01, False)).sum(
                                  axis=1, skipna=False).to_frame('z_quality')
+
+#data_bind 테이블과 합치며, z_quality 열에는 퀄리티 지표의 Z-Score가 표시된다.
 data_bind = data_bind.merge(z_quality, how='left', on=['종목코드', 'SEC_NM_KOR'])
 
 
+#밸류 지표에 해당하는 PBR, PCR, PER, PSR 열을 선택한 후, col_clean() 함수를 적용한다. 또한 인자에 True를 입력해 오름차순으로 순위를 구한다.
 value_1 = data_bind_group[['PBR', 'PCR', 'PER',
                            'PSR']].apply(lambda x: col_clean(x, 0.01, True))
+#DY(배당수익률)의 경우 내림차순으로 순위를 계산해야 하므로 col_clean() 함수에 False를 입력한다.
 value_2 = data_bind_group[['DY']].apply(lambda x: col_clean(x, 0.01, False))
-
+#위의 두 결과에서 나온 합쳐 Z-Score의 합을 구한 후, 데이터프레임 형태로 변경한다.
 z_value = value_1.merge(value_2, on=['종목코드', 'SEC_NM_KOR'
                                      ]).sum(axis=1,
                                             skipna=False).to_frame('z_value')
+
+#data_bind 테이블과 합치며, z_value 열에는 밸류 지표의 Z-Score가 표시된다.
 data_bind = data_bind.merge(z_value, how='left', on=['종목코드', 'SEC_NM_KOR'])
 
-print(data_bind.round(4).head())
-
+#모멘텀 지표에 해당하는 12M, K_ratio 열을 선택한 후 col_clean() 함수를 적용한다.
 z_momentum = data_bind_group[[
     '12M', 'K_ratio'
 ]].apply(lambda x: col_clean(x, 0.01, False)).sum(
     axis=1, skipna=False).to_frame('z_momentum')
-data_bind = data_bind.merge(z_momentum, how='left', on=['종목코드', 'SEC_NM_KOR'])
 
-print(data_bind.round(4).head())
+#data_bind 테이블과 합치며, z_momentum 열에는 모멘텀 지표의 Z-Score가 표시된다.
+data_bind = data_bind.merge(z_momentum, how='left', on=['종목코드', 'SEC_NM_KOR'])
 
 data_z = data_bind[['z_quality', 'z_value', 'z_momentum']].copy()
 
@@ -157,11 +170,18 @@ data_bind_final = data_bind[['종목코드', 'z_quality', 'z_value', 'z_momentum
                                                         nan_policy='omit')
 data_bind_final.columns = ['quality', 'value', 'momentum']
 
+
+#각 팩터별 비중을 리스트로 만들며, 0.3으로 동일한 비중을 입력한다. 비중을 [0.2, 0.4, 0.4]와 같이 팩터별로 다르게 줄 수도 있으며,
+#이는 어떠한 팩터를 더욱 중요하게 생각하는지 혹은 더욱 좋게 보는지에 따라 조정이 가능하다.
 wts = [0.3, 0.3, 0.3]
+
+#팩터별 Z-Score와 비중의 곱을 구한 후 이를 합하며, 데이터프레임(data_bind_final_sum) 형태로 변경한다.
 data_bind_final_sum = (data_bind_final * wts).sum(axis=1,
                                                   skipna=False).to_frame()
 data_bind_final_sum.columns = ['qvm']
+#기존 테이블(data_bind)과 합친다.
 port_qvm = data_bind.merge(data_bind_final_sum, on='종목코드')
+#최종 Z-Score의 합(qvm) 기준 순위가 1~20인 경우는 투자 종목에 해당하므로 ‘Y’, 그렇지 않으면 ‘N’으로 표시한다.
 port_qvm['invest'] = np.where(port_qvm['qvm'].rank() <= 20, 'Y', 'N')
 
 print(port_qvm[port_qvm['invest'] == 'Y'].round(4))
