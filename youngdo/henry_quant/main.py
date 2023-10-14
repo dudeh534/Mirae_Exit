@@ -1,9 +1,11 @@
+import pymysql
 from sqlalchemy import create_engine
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
 from scipy.stats import zscore
 import matplotlib.pyplot as plt
+from datetime import date
 
 """
 퀄리티: 자기자본이익률(ROE), 매출총이익(GPA), 영업활동현금흐름(CFO)
@@ -187,3 +189,31 @@ port_qvm['invest'] = np.where(port_qvm['qvm'].rank() <= 20, 'Y', 'N')
 print(port_qvm[port_qvm['invest'] == 'Y'].round(4))
 
 port_qvm[port_qvm['invest'] == 'Y'].round(4).to_excel('model.xlsx', index=False)
+
+# DB 연결
+engine = create_engine('mysql+pymysql://root:Myhome469!@127.0.0.1:3306/stock_db')
+con = pymysql.connect(user='root',
+                      passwd='Myhome469!',
+                      host='127.0.0.1',
+                      db='stock_db',
+                      charset='utf8')
+mycursor = con.cursor()
+
+# DB 저장 쿼리
+query = """
+    insert into model_result (날짜, 종목코드, 종목명, SEC_NM_KOR, ROE, GPA, CFO, DY, PBR, PCR, PER, PSR, 12M, K_ratio, z_quality, z_value, z_momentum, qvm, invest)
+    values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) as new
+    on duplicate key update
+    종목명 = new.종목명, SEC_NM_KOR = new.SEC_NM_KOR, ROE = new.ROE, GPA = new.GPA, CFO = new.CFO, DY = new.DY,
+    PBR = new.PBR, PCR = new.PCR, PER = new.PER, PSR = new.PSR, 12M = new.12M, K_ratio = new.K_ratio, z_quality = new.z_quality,
+    z_value = new.z_value, z_momentum = new.z_momentum, qvm = new.qvm, invest = new.invest;
+"""
+
+port_qvm.insert(0, '날짜', pd.to_datetime((date.today()).strftime("%Y%m%d")))
+args = port_qvm[port_qvm['invest'] == 'Y'].round(4).values.tolist()
+mycursor.executemany(query, args)
+con.commit()
+
+# DB 연결 종료
+engine.dispose()
+con.close()

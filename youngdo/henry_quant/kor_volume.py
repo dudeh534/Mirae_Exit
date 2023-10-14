@@ -1,4 +1,4 @@
-# 패키지 불러오기
+from pykrx import stock
 import pymysql
 from sqlalchemy import create_engine
 import pandas as pd
@@ -27,13 +27,12 @@ where 기준일 = (select max(기준일) from kor_ticker)
 
 # DB 저장 쿼리
 query = """
-    insert into kor_price (날짜, 시가, 고가, 저가, 종가, 거래량, 종목코드)
-    values (%s,%s,%s,%s,%s,%s,%s) as new
+    insert into kor_volume (날짜,종목코드,금융투자,보험,투신,사모,은행,기타금융,연기금,기타법인,개인,외국인,기타외국인)
+    values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) as new
     on duplicate key update
-    시가 = new.시가, 고가 = new.고가, 저가 = new.저가,
-    종가 = new.종가, 거래량 = new.거래량;
+    금융투자 = new.금융투자, 보험 = new.보험, 투신 = new.투신, 사모 = new.사모, 은행 = new.은행, 기타금융 = new.기타금융,
+    연기금 = new.연기금, 기타법인 = new.기타법인, 개인 = new.개인, 외국인 = new.외국인, 기타외국인 = new.기타외국인;
 """
-
 # 오류 발생시 저장할 리스트 생성
 error_list = []
 
@@ -45,30 +44,18 @@ for i in tqdm(range(0, len(ticker_list))):
 
     # 시작일과 종료일
 
-    fr = (date.today() + relativedelta(days=-3)).strftime("%Y%m%d")
+    fr = (date.today() + relativedelta(days=-365)).strftime("%Y%m%d")
     to = (date.today()).strftime("%Y%m%d")
 
     # 오류 발생 시 이를 무시하고 다음 루프로 진행
     try:
 
-        # url 생성
-        url = f'''https://fchart.stock.naver.com/siseJson.nhn?symbol={ticker}&requestType=1
-        &startTime={fr}&endTime={to}&timeframe=day'''
-
-        # 데이터 다운로드
-        data = rq.get(url).content
-        data_price = pd.read_csv(BytesIO(data))
-
-        # 데이터 클렌징
-        price = data_price.iloc[:, 0:6]
-        price.columns = ['날짜', '시가', '고가', '저가', '종가', '거래량']
-        price = price.dropna()
-        price['날짜'] = price['날짜'].str.extract('(\d+)')
-        price['날짜'] = pd.to_datetime(price['날짜'])
-        price['종목코드'] = ticker
-
-        # 주가 데이터를 DB에 저장
-        args = price.values.tolist()
+        volume = stock.get_market_trading_volume_by_date(fr, to, ticker, etf=True, etn=True, elw=True,
+                                                         detail=True)
+        volume = volume.reset_index()
+        volume = volume.drop('전체', axis=1)
+        volume.insert(1, '종목코드', ticker)
+        args = volume.values.tolist()
         mycursor.executemany(query, args)
         con.commit()
 
@@ -84,3 +71,6 @@ for i in tqdm(range(0, len(ticker_list))):
 # DB 연결 종료
 engine.dispose()
 con.close()
+
+
+
