@@ -36,6 +36,11 @@ select * from kor_value
 where 기준일 = (select max(기준일) from kor_value);
 """, con=engine)
 
+sector_list = pd.read_sql("""
+select CMP_CD as 종목코드, CMP_KOR, SEC_NM_KOR from kor_sector
+where 기준일 = (select max(기준일) from kor_sector);
+""", con=engine)
+
 price_list = pd.read_sql("""
 SELECT price.종목코드, price.종가, price.SMA_5, price.SMA_10, price.SMA_20
 FROM kor_ticker as ticker
@@ -57,8 +62,6 @@ engine.dispose()
 
 pd.set_option('display.max_columns', None)  ## 모든 열을 출력한다.
 
-print(price_list)
-
 # 종가('종가')가 모든 이평선('SMA_5', 'SMA_10', 'SMA_20')보다 낮은 종목코드 추출
 under_sma = price_list[(price_list['종가'] > price_list['SMA_5']) & (price_list['종가'] > price_list['SMA_10']) & (price_list['종가'] > price_list['SMA_20'])]
 
@@ -74,15 +77,19 @@ under_5_percent = under_sma[(under_sma['SMA_5_diff'] / under_sma['종가'] < 0.0
 
 # 결과 출력
 print("SMA_5, SMA_10, SMA_20 모두 이평선 아래에 위치한 종목:", len(under_5_percent))
-print(under_5_percent)
 
 # under_5_percent에 저장된 종목코드를 기준으로 데이터프레임 필터링
 filtered_data = volume_list[volume_list['종목코드'].isin(under_5_percent)]
 
-filtered_data1 = filtered_data[(filtered_data['연기금'] > 1.3 * filtered_data['개인']) | (filtered_data['기관계'] > 1.5 * filtered_data['개인']) | (filtered_data['외국인'] > 1.5 * filtered_data['개인'])]
+filtered_data1 = filtered_data[(filtered_data['연기금'] > 1 * filtered_data['개인']) | (filtered_data['기관계'] > 1 * filtered_data['개인']) | (filtered_data['외국인'] > 1 * filtered_data['개인'])]
 
 print("수급포함:", len(filtered_data1))
-print(filtered_data1)
+
+# 두 데이터프레임을 종목코드를 기준으로 합침
+merged_df = filtered_data1.merge(sector_list, on='종목코드', how='inner')
+
+# 결과 출력
+print(merged_df)
 
 # 날짜를 기준으로 정렬
 np_list['기준일'] = pd.to_datetime(np_list['기준일'])
@@ -112,7 +119,12 @@ for code, group in op_list.groupby('종목코드'):
 filtered_data2 = filtered_data1[filtered_data1['종목코드'].isin(result)]
 
 print("수급포함:", len(filtered_data1))
-print(filtered_data2)
+
+# 두 데이터프레임을 종목코드를 기준으로 합침
+merged_df1 = filtered_data2.merge(sector_list, on='종목코드', how='inner')
+
+# 결과 출력
+print(merged_df1)
 
 """
 todo
@@ -135,4 +147,5 @@ pykrx 이용해서 강남기법 구현하기
 #데이짱 책 정독 - 기법 체화
 #우량성, 이익성 지표 발굴 및 추가 
 #백테스팅? 계획 재수립
+#순이익률도 계산
 """
