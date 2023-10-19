@@ -8,20 +8,7 @@ import matplotlib.pyplot as plt
 from datetime import date
 
 """
-매일
-1. kor_price
-2. kor_SMA
-3. kor_volume
-주별
-4. kor_ticker
-5. kor_ticker_index
-6. kor_sector
-분기
-7. kor_fs
-8. kor_value
-결과
-10. main
-11. day_zzang
+
 
 퀄리티: 자기자본이익률(ROE), 매출총이익(GPA), 영업활동현금흐름(CFO)
 밸류: PER, PBR, PSR, PCR, DY
