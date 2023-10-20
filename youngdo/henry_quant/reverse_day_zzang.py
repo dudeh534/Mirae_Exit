@@ -63,12 +63,12 @@ engine.dispose()
 pd.set_option('display.max_columns', None)  ## 모든 열을 출력한다.
 
 # 종가('종가')가 모든 이평선('SMA_5', 'SMA_10', 'SMA_20')보다 낮은 종목코드 추출
-under_sma = price_list[(price_list['종가'] > price_list['SMA_5']) & (price_list['종가'] > price_list['SMA_10']) & (price_list['종가'] > price_list['SMA_20'])]
+under_sma = price_list[(price_list['종가'] < price_list['SMA_5']) & (price_list['종가'] < price_list['SMA_10']) & (price_list['종가'] < price_list['SMA_20'])]
 
 # 종가와 이평선들 간의 차이의 절대값 계산
-under_sma['SMA_5_diff'] = np.abs(under_sma['종가'] - under_sma['SMA_5'])
-under_sma['SMA_10_diff'] = np.abs(under_sma['종가'] - under_sma['SMA_10'])
-under_sma['SMA_20_diff'] = np.abs(under_sma['종가'] - under_sma['SMA_20'])
+under_sma['SMA_5_diff'] = np.abs(under_sma['SMA_5'] - under_sma['종가'])
+under_sma['SMA_10_diff'] = np.abs(under_sma['SMA_10'] - under_sma['종가'])
+under_sma['SMA_20_diff'] = np.abs(under_sma['SMA_20'] - under_sma['종가'])
 
 # 5% 미만 범위에 위치하는 종목코드 추출
 under_5_percent = under_sma[(under_sma['SMA_5_diff'] / under_sma['종가'] < 0.05) &
@@ -81,7 +81,7 @@ print("SMA_5, SMA_10, SMA_20 모두 이평선 아래에 위치한 종목:", len(
 # under_5_percent에 저장된 종목코드를 기준으로 데이터프레임 필터링
 filtered_data = volume_list[volume_list['종목코드'].isin(under_5_percent)]
 
-filtered_data1 = filtered_data[(filtered_data['연기금'] > 1 * filtered_data['개인']) | (filtered_data['기관계'] > 1 * filtered_data['개인']) | (filtered_data['외국인'] > 1 * filtered_data['개인'])]
+filtered_data1 = filtered_data[(filtered_data['개인'] > 0) | ((filtered_data['기관계'] < 1 * filtered_data['개인']) | (filtered_data['외국인'] < 1 * filtered_data['개인']))]
 
 print("수급포함:", len(filtered_data1))
 
@@ -100,8 +100,8 @@ result = []
 for code, group in np_list.groupby('종목코드'):
     if len(group) == 4:
         # 4개의 분기 데이터가 있는 경우
-        profits = group['값'].tail(3).values
-        if all(profits[i] < profits[i + 1] for i in range(2)):
+        profits = group['값'].tail(2).values
+        if all(profits[i] > profits[i + 1] for i in range(1)):
             result.append(code)
 
 # 날짜를 기준으로 정렬
@@ -112,13 +112,13 @@ op_list = op_list.sort_values(by=['종목코드', '기준일'])
 for code, group in op_list.groupby('종목코드'):
     if len(group) == 4:
         # 4개의 분기 데이터가 있는 경우
-        profits = group['값'].tail(3).values
-        if all(profits[i] < profits[i + 1] for i in range(2)):
+        profits = group['값'].tail(2).values
+        if all(profits[i] > profits[i + 1] for i in range(1)):
             result.append(code)
 
 filtered_data2 = filtered_data1[filtered_data1['종목코드'].isin(result)]
 
-print("수급포함:", len(filtered_data1))
+print("실적포함:", len(filtered_data2))
 
 # 두 데이터프레임을 종목코드를 기준으로 합침
 merged_df1 = filtered_data2.merge(sector_list, on='종목코드', how='inner')
@@ -137,7 +137,7 @@ mycursor = con.cursor()
 
 # DB 저장 쿼리
 query = """
-    insert into day_zzang_gangnam (날짜, 종목코드, 종목명, SEC_NM_KOR)
+    insert into day_zzang_reverse_gangnam (날짜, 종목코드, 종목명, SEC_NM_KOR)
     values (%s,%s,%s,%s) as new
     on duplicate key update
     종목명 = new.종목명, SEC_NM_KOR = new.SEC_NM_KOR;
